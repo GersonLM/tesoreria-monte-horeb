@@ -167,3 +167,13 @@ export const getEstadoComprometidos = async (req, res) => {
     errorResponse(res, error.message, 500);
   }
 };
+
+
+export const getSaldoHistorico = async (req, res) => {
+  try {
+    const saldo = await tesoreriaService.getSaldoHistorico();
+    successResponse(res, saldo, 'Saldo histórico obtenido exitosamente');
+  } catch (error) {
+    errorResponse(res, error.message, 500);
+  }
+};

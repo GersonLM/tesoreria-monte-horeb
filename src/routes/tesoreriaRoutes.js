@@ -38,6 +38,7 @@ const aporteValidation = [
 ];
 
 // Resúmenes
+router.get('/saldo-historico', tesoreriaController.getSaldoHistorico);
 router.get('/resumen/:mes/:year', tesoreriaController.getResumenMensual);
 router.get('/resumen-anual/:year', tesoreriaController.getResumenAnual);
 

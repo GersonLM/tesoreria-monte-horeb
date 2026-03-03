@@ -256,6 +256,54 @@ class TesoreriaService {
   async eliminarAporteComprometido(id) {
     return await AporteComprometido.findByIdAndDelete(id);
   }
+
+    // Saldo histórico total acumulado (sin filtro de fecha)
+  async getSaldoHistorico() {
+    const [ofrendas, ventas, aportes, egresos] = await Promise.all([
+      Ofrenda.aggregate([{ $group: { _id: null, total: { $sum: '$monto' } } }]),
+      Venta.aggregate([{ $group: { _id: null, total: { $sum: '$ganancias' } } }]),
+      AporteComprometido.aggregate([
+        { $match: { pagado: true } },
+        { $group: { _id: null, total: { $sum: '$monto' } } }
+      ]),
+      Egreso.aggregate([{ $group: { _id: null, total: { $sum: '$monto' } } }])
+    ]);
+
+    const totalOfrendas      = ofrendas[0]?.total  ?? 0;
+    const totalVentas        = ventas[0]?.total     ?? 0;
+    const totalComprometidos = aportes[0]?.total    ?? 0;
+    const totalIngresos      = totalOfrendas + totalVentas + totalComprometidos;
+    const totalEgresos       = egresos[0]?.total    ?? 0;
+    const saldoActual        = totalIngresos - totalEgresos;
+
+    const primerRegistro = await Promise.all([
+      Ofrenda.findOne().sort({ fecha: 1 }).select('fecha'),
+      Venta.findOne().sort({ fecha: 1 }).select('fecha'),
+      AporteComprometido.findOne({ pagado: true }).sort({ fecha: 1 }).select('fecha'),
+      Egreso.findOne().sort({ fecha: 1 }).select('fecha'),
+    ]);
+
+    const fechas = primerRegistro
+      .filter(Boolean)
+      .map(r => new Date(r.fecha))
+      .filter(d => !isNaN(d));
+
+    const fechaInicio = fechas.length
+      ? fechas.reduce((a, b) => (a < b ? a : b))
+      : null;
+
+    return {
+      saldoActual,
+      totalIngresos,
+      totalEgresos,
+      desglose: {
+        ofrendas: totalOfrendas,
+        ventas: totalVentas,
+        comprometidos: totalComprometidos,
+      },
+      fechaInicio: fechaInicio ? fechaInicio.toISOString() : null,
+    };
+  }
 }
 
 export default new TesoreriaService();
