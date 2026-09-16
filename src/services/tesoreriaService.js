@@ -1,27 +1,34 @@
 import Ofrenda from '../models/Ofrenda.js';
 import Venta from '../models/Venta.js';
 import Egreso from '../models/Egreso.js';
+import OtroIngreso from '../models/OtroIngreso.js';
 import AporteComprometido from '../models/AporteComprometido.js';
 import User from '../models/User.js';
 import { extractMonthYear } from '../helpers/dateHelper.js';
+import { ORGANIZACIONES } from '../consts.js';
 
 class TesoreriaService {
   // Obtener resumen mensual
-  async getResumenMensual(mes, year) {
+  async getResumenMensual(mes, year, organizacion = ORGANIZACIONES.MISION) {
+    const filtro = { mes, year, organizacion };
+
     // Obtener todos los ingresos
-    const ofrendas = await Ofrenda.find({ mes, year });
-    const ventas = await Venta.find({ mes, year });
-    const aportesComprometidos = await AporteComprometido.find({ mes, year, pagado: true })
-      .populate('usuario', 'nombre montoComprometido');
-    
+    const ofrendas = await Ofrenda.find(filtro);
+    const ventas = await Venta.find(filtro);
+    const otros = await OtroIngreso.find(filtro);
+    const aportesComprometidos = organizacion === ORGANIZACIONES.MISION
+      ? await AporteComprometido.find({ mes, year, pagado: true }).populate('usuario', 'nombre montoComprometido')
+      : [];
+
     // Calcular totales de ingresos
     const totalOfrendas = ofrendas.reduce((sum, o) => sum + o.monto, 0);
     const totalVentas = ventas.reduce((sum, v) => sum + v.ganancias, 0);
+    const totalOtros = otros.reduce((sum, o) => sum + o.monto, 0);
     const totalComprometidos = aportesComprometidos.reduce((sum, a) => sum + a.monto, 0);
-    const totalIngresos = totalOfrendas + totalVentas + totalComprometidos;
+    const totalIngresos = totalOfrendas + totalVentas + totalOtros + totalComprometidos;
 
     // Obtener egresos
-    const egresos = await Egreso.find({ mes, year });
+    const egresos = await Egreso.find(filtro);
     const totalEgresos = egresos.reduce((sum, e) => sum + e.monto, 0);
 
     // Calcular balance
@@ -30,6 +37,7 @@ class TesoreriaService {
     return {
       mes,
       year,
+      organizacion,
       ingresos: {
         ofrendas: {
           total: totalOfrendas,
@@ -40,6 +48,11 @@ class TesoreriaService {
           total: totalVentas,
           cantidad: ventas.length,
           detalle: ventas
+        },
+        otros: {
+          total: totalOtros,
+          cantidad: otros.length,
+          detalle: otros
         },
         comprometidos: {
           total: totalComprometidos,
@@ -58,11 +71,11 @@ class TesoreriaService {
   }
 
   // Obtener resumen anual
-  async getResumenAnual(year) {
+  async getResumenAnual(year, organizacion = ORGANIZACIONES.MISION) {
     const resumen = [];
-    
+
     for (let mes = 1; mes <= 12; mes++) {
-      const resumenMes = await this.getResumenMensual(mes, year);
+      const resumenMes = await this.getResumenMensual(mes, year, organizacion);
       resumen.push({
         mes,
         year,
@@ -78,7 +91,7 @@ class TesoreriaService {
   // Crear ofrenda
   async crearOfrenda(data, userId) {
     const { mes, year } = extractMonthYear(data.fecha);
-    
+
     const ofrenda = await Ofrenda.create({
       ...data,
       mes,
@@ -92,7 +105,7 @@ class TesoreriaService {
   // Crear venta
   async crearVenta(data, userId) {
     const { mes, year } = extractMonthYear(data.fecha);
-    
+
     const venta = await Venta.create({
       ...data,
       mes,
@@ -106,7 +119,7 @@ class TesoreriaService {
   // Crear egreso
   async crearEgreso(data, userId) {
     const { mes, year } = extractMonthYear(data.fecha);
-    
+
     const egreso = await Egreso.create({
       ...data,
       mes,
@@ -117,10 +130,24 @@ class TesoreriaService {
     return egreso;
   }
 
+  // Crear otro ingreso
+  async crearOtroIngreso(data, userId) {
+    const { mes, year } = extractMonthYear(data.fecha);
+
+    const otroIngreso = await OtroIngreso.create({
+      ...data,
+      mes,
+      year,
+      registradoPor: userId
+    });
+
+    return otroIngreso;
+  }
+
   // Registrar aporte de comprometido
   async registrarAporteComprometido(data, userId) {
     const { mes, year } = extractMonthYear(data.fecha);
-    
+
     // Verificar que el usuario sea comprometido
     const usuario = await User.findById(data.usuario);
     if (!usuario || usuario.rol !== 'comprometido') {
@@ -150,10 +177,27 @@ class TesoreriaService {
 
   // Obtener estado de comprometidos en un mes
   async getEstadoComprometidos(mes, year) {
+    const inicioMes = new Date(year, mes - 1, 1);
+    const inicioMesSiguiente = new Date(year, mes, 1);
+
     const comprometidos = await User.find({
       rol: 'comprometido',
-      activo: true
-    }).select('nombre email montoComprometido');
+      $and: [
+        {
+          $or: [
+            { activo: true },
+            { activo: false, fechaDesactivacion: { $gte: inicioMes } }
+          ]
+        },
+        {
+          $or: [
+            { fechaInicio: null },
+            { fechaInicio: { $exists: false } },
+            { fechaInicio: { $lt: inicioMesSiguiente } }
+          ]
+        }
+      ]
+    }).select('nombre email montoComprometido activo fechaDesactivacion fechaInicio');
 
     const estadoComprometidos = await Promise.all(
       comprometidos.map(async (comprometido) => {
@@ -168,7 +212,10 @@ class TesoreriaService {
             _id: comprometido._id,
             nombre: comprometido.nombre,
             email: comprometido.email,
-            montoComprometido: comprometido.montoComprometido
+            montoComprometido: comprometido.montoComprometido,
+            activo: comprometido.activo,
+            fechaInicio: comprometido.fechaInicio,
+            fechaDesactivacion: comprometido.fechaDesactivacion
           },
           pagado: aporte ? aporte.pagado : false,
           montoPagado: aporte ? aporte.monto : 0,
@@ -225,6 +272,15 @@ class TesoreriaService {
     return await Egreso.findByIdAndUpdate(id, data, { new: true, runValidators: true });
   }
 
+  async actualizarOtroIngreso(id, data) {
+    if (data.fecha) {
+      const { mes, year } = extractMonthYear(data.fecha);
+      data.mes = mes;
+      data.year = year;
+    }
+    return await OtroIngreso.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+  }
+
   async actualizarAporteComprometido(id, data) {
     if (data.fecha) {
       const { mes, year } = extractMonthYear(data.fecha);
@@ -253,34 +309,48 @@ class TesoreriaService {
     return await Egreso.findByIdAndDelete(id);
   }
 
+  async eliminarOtroIngreso(id) {
+    return await OtroIngreso.findByIdAndDelete(id);
+  }
+
   async eliminarAporteComprometido(id) {
     return await AporteComprometido.findByIdAndDelete(id);
   }
 
     // Saldo histórico total acumulado (sin filtro de fecha)
-  async getSaldoHistorico() {
-    const [ofrendas, ventas, aportes, egresos] = await Promise.all([
-      Ofrenda.aggregate([{ $group: { _id: null, total: { $sum: '$monto' } } }]),
-      Venta.aggregate([{ $group: { _id: null, total: { $sum: '$ganancias' } } }]),
-      AporteComprometido.aggregate([
-        { $match: { pagado: true } },
-        { $group: { _id: null, total: { $sum: '$monto' } } }
-      ]),
-      Egreso.aggregate([{ $group: { _id: null, total: { $sum: '$monto' } } }])
+  async getSaldoHistorico(organizacion = ORGANIZACIONES.MISION) {
+    const matchOrg = { organizacion };
+    const esMision = organizacion === ORGANIZACIONES.MISION;
+
+    const [ofrendas, ventas, otros, aportes, egresos] = await Promise.all([
+      Ofrenda.aggregate([{ $match: matchOrg }, { $group: { _id: null, total: { $sum: '$monto' } } }]),
+      Venta.aggregate([{ $match: matchOrg }, { $group: { _id: null, total: { $sum: '$ganancias' } } }]),
+      OtroIngreso.aggregate([{ $match: matchOrg }, { $group: { _id: null, total: { $sum: '$monto' } } }]),
+      esMision
+        ? AporteComprometido.aggregate([
+            { $match: { pagado: true } },
+            { $group: { _id: null, total: { $sum: '$monto' } } }
+          ])
+        : Promise.resolve([]),
+      Egreso.aggregate([{ $match: matchOrg }, { $group: { _id: null, total: { $sum: '$monto' } } }])
     ]);
 
     const totalOfrendas      = ofrendas[0]?.total  ?? 0;
     const totalVentas        = ventas[0]?.total     ?? 0;
+    const totalOtros         = otros[0]?.total      ?? 0;
     const totalComprometidos = aportes[0]?.total    ?? 0;
-    const totalIngresos      = totalOfrendas + totalVentas + totalComprometidos;
+    const totalIngresos      = totalOfrendas + totalVentas + totalOtros + totalComprometidos;
     const totalEgresos       = egresos[0]?.total    ?? 0;
     const saldoActual        = totalIngresos - totalEgresos;
 
     const primerRegistro = await Promise.all([
-      Ofrenda.findOne().sort({ fecha: 1 }).select('fecha'),
-      Venta.findOne().sort({ fecha: 1 }).select('fecha'),
-      AporteComprometido.findOne({ pagado: true }).sort({ fecha: 1 }).select('fecha'),
-      Egreso.findOne().sort({ fecha: 1 }).select('fecha'),
+      Ofrenda.findOne(matchOrg).sort({ fecha: 1 }).select('fecha'),
+      Venta.findOne(matchOrg).sort({ fecha: 1 }).select('fecha'),
+      OtroIngreso.findOne(matchOrg).sort({ fecha: 1 }).select('fecha'),
+      esMision
+        ? AporteComprometido.findOne({ pagado: true }).sort({ fecha: 1 }).select('fecha')
+        : Promise.resolve(null),
+      Egreso.findOne(matchOrg).sort({ fecha: 1 }).select('fecha'),
     ]);
 
     const fechas = primerRegistro
@@ -299,6 +369,7 @@ class TesoreriaService {
       desglose: {
         ofrendas: totalOfrendas,
         ventas: totalVentas,
+        otros: totalOtros,
         comprometidos: totalComprometidos,
       },
       fechaInicio: fechaInicio ? fechaInicio.toISOString() : null,

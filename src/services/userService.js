@@ -33,8 +33,11 @@ class UserService {
   }
 
   async updateUser(id, updateData) {
-    // No permitir actualizar password desde aquí
     delete updateData.password;
+
+    if ('fechaDesactivacion' in updateData) {
+      updateData.activo = !updateData.fechaDesactivacion;
+    }
 
     const user = await User.findByIdAndUpdate(
       id,
@@ -71,6 +74,30 @@ class UserService {
     }).select('-password').sort({ nombre: 1 });
 
     return comprometidos;
+  }
+
+  async desactivarComprometido(id) {
+    const user = await User.findById(id);
+
+    if (!user) {
+      throw new Error('Usuario no encontrado');
+    }
+
+    if (user.rol !== 'comprometido') {
+      throw new Error('El usuario no es un comprometido');
+    }
+
+    if (!user.activo) {
+      throw new Error('El comprometido ya está desactivado');
+    }
+
+    const updated = await User.findByIdAndUpdate(
+      id,
+      { activo: false, fechaDesactivacion: new Date() },
+      { new: true }
+    ).select('-password');
+
+    return updated;
   }
 
   async updateMontoComprometido(id, monto) {

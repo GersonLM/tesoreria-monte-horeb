@@ -23,6 +23,7 @@ const loginValidation = [
 // Rutas públicas
 router.post('/register', registerValidation, validateRequest, authController.register);
 router.post('/login', loginValidation, validateRequest, authController.login);
+router.post('/refresh', authController.refresh);
 
 // Rutas protegidas
 router.get('/profile', protect, authController.getProfile);

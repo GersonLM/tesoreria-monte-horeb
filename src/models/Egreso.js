@@ -25,6 +25,12 @@ const egresoSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  organizacion: {
+    type: String,
+    enum: ['mision', 'edc'],
+    default: 'mision',
+    required: true,
+  },
   registradoPor: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -34,7 +40,7 @@ const egresoSchema = new mongoose.Schema({
 });
 
 // Índice para búsquedas eficientes
-egresoSchema.index({ mes: 1, year: 1 });
+egresoSchema.index({ organizacion: 1, mes: 1, year: 1 });
 
 const Egreso = mongoose.model('Egreso', egresoSchema);
 

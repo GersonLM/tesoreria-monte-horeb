@@ -3,6 +3,11 @@ export const ROLES = {
   COMPROMETIDO: 'comprometido'
 };
 
+export const ORGANIZACIONES = {
+  MISION: 'mision',
+  EDC: 'edc'
+};
+
 export const INGRESO_TYPES = {
   OFRENDA: 'ofrenda',
   COMPROMETIDO: 'comprometido',

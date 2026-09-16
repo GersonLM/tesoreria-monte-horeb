@@ -1,11 +1,17 @@
 import tesoreriaService from '../services/tesoreriaService.js';
 import { successResponse, errorResponse } from '../helpers/responseHelper.js';
+import { ORGANIZACIONES } from '../consts.js';
+
+const getOrganizacion = (req) => {
+  const organizacion = req.query.organizacion;
+  return Object.values(ORGANIZACIONES).includes(organizacion) ? organizacion : ORGANIZACIONES.MISION;
+};
 
 // Resumen
 export const getResumenMensual = async (req, res) => {
   try {
     const { mes, year } = req.params;
-    const resumen = await tesoreriaService.getResumenMensual(parseInt(mes), parseInt(year));
+    const resumen = await tesoreriaService.getResumenMensual(parseInt(mes), parseInt(year), getOrganizacion(req));
     successResponse(res, resumen, 'Resumen mensual obtenido exitosamente');
   } catch (error) {
     errorResponse(res, error.message, 500);
@@ -15,7 +21,7 @@ export const getResumenMensual = async (req, res) => {
 export const getResumenAnual = async (req, res) => {
   try {
     const { year } = req.params;
-    const resumen = await tesoreriaService.getResumenAnual(parseInt(year));
+    const resumen = await tesoreriaService.getResumenAnual(parseInt(year), getOrganizacion(req));
     successResponse(res, resumen, 'Resumen anual obtenido exitosamente');
   } catch (error) {
     errorResponse(res, error.message, 500);
@@ -85,6 +91,40 @@ export const eliminarVenta = async (req, res) => {
       return errorResponse(res, 'Venta no encontrada', 404);
     }
     successResponse(res, null, 'Venta eliminada exitosamente');
+  } catch (error) {
+    errorResponse(res, error.message, 500);
+  }
+};
+
+// Otros Ingresos
+export const crearOtroIngreso = async (req, res) => {
+  try {
+    const otroIngreso = await tesoreriaService.crearOtroIngreso(req.body, req.user._id);
+    successResponse(res, otroIngreso, 'Ingreso registrado exitosamente', 201);
+  } catch (error) {
+    errorResponse(res, error.message, 400);
+  }
+};
+
+export const actualizarOtroIngreso = async (req, res) => {
+  try {
+    const otroIngreso = await tesoreriaService.actualizarOtroIngreso(req.params.id, req.body);
+    if (!otroIngreso) {
+      return errorResponse(res, 'Ingreso no encontrado', 404);
+    }
+    successResponse(res, otroIngreso, 'Ingreso actualizado exitosamente');
+  } catch (error) {
+    errorResponse(res, error.message, 400);
+  }
+};
+
+export const eliminarOtroIngreso = async (req, res) => {
+  try {
+    const otroIngreso = await tesoreriaService.eliminarOtroIngreso(req.params.id);
+    if (!otroIngreso) {
+      return errorResponse(res, 'Ingreso no encontrado', 404);
+    }
+    successResponse(res, null, 'Ingreso eliminado exitosamente');
   } catch (error) {
     errorResponse(res, error.message, 500);
   }
@@ -171,7 +211,7 @@ export const getEstadoComprometidos = async (req, res) => {
 
 export const getSaldoHistorico = async (req, res) => {
   try {
-    const saldo = await tesoreriaService.getSaldoHistorico();
+    const saldo = await tesoreriaService.getSaldoHistorico(getOrganizacion(req));
     successResponse(res, saldo, 'Saldo histórico obtenido exitosamente');
   } catch (error) {
     errorResponse(res, error.message, 500);

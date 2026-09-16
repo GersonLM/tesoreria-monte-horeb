@@ -10,10 +10,13 @@ const router = express.Router();
 router.use(protect);
 
 // Validaciones
+const organizacionValidation = body('organizacion').optional().isIn(['mision', 'edc']).withMessage('Organización inválida');
+
 const ofrendaValidation = [
   body('monto').isFloat({ min: 0 }).withMessage('El monto debe ser mayor o igual a 0'),
   body('fecha').isISO8601().withMessage('Formato de fecha inválido'),
   body('motivo').optional().trim(),
+  organizacionValidation,
 ];
 
 const ventaValidation = [
@@ -22,12 +25,21 @@ const ventaValidation = [
   body('ganancias').isFloat({ min: 0 }).withMessage('Las ganancias deben ser mayores o iguales a 0'),
   body('descripcion').optional().trim(),
   body('fecha').isISO8601().withMessage('Formato de fecha inválido'),
+  organizacionValidation,
 ];
 
 const egresoValidation = [
   body('monto').isFloat({ min: 0 }).withMessage('El monto debe ser mayor o igual a 0'),
   body('motivo').notEmpty().withMessage('El motivo es requerido').trim(),
   body('fecha').isISO8601().withMessage('Formato de fecha inválido'),
+  organizacionValidation,
+];
+
+const otroIngresoValidation = [
+  body('monto').isFloat({ min: 0 }).withMessage('El monto debe ser mayor o igual a 0'),
+  body('motivo').notEmpty().withMessage('El motivo es requerido').trim(),
+  body('fecha').isISO8601().withMessage('Formato de fecha inválido'),
+  organizacionValidation,
 ];
 
 const aporteValidation = [
@@ -54,6 +66,11 @@ router.delete('/ofrendas/:id', restrictTo('admin'), tesoreriaController.eliminar
 router.post('/ventas', restrictTo('admin'), ventaValidation, validateRequest, tesoreriaController.crearVenta);
 router.put('/ventas/:id', restrictTo('admin'), ventaValidation, validateRequest, tesoreriaController.actualizarVenta);
 router.delete('/ventas/:id', restrictTo('admin'), tesoreriaController.eliminarVenta);
+
+// Otros Ingresos
+router.post('/otros-ingresos', restrictTo('admin'), otroIngresoValidation, validateRequest, tesoreriaController.crearOtroIngreso);
+router.put('/otros-ingresos/:id', restrictTo('admin'), otroIngresoValidation, validateRequest, tesoreriaController.actualizarOtroIngreso);
+router.delete('/otros-ingresos/:id', restrictTo('admin'), tesoreriaController.eliminarOtroIngreso);
 
 // Egresos
 router.post('/egresos', restrictTo('admin'), egresoValidation, validateRequest, tesoreriaController.crearEgreso);

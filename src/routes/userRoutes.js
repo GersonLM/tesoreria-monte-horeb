@@ -39,5 +39,6 @@ router.post('/', restrictTo('admin'), createUserValidation, validateRequest, use
 router.put('/:id', restrictTo('admin'), updateUserValidation, validateRequest, userController.updateUser);
 router.delete('/:id', restrictTo('admin'), userController.deleteUser);
 router.put('/:id/monto', restrictTo('admin'), updateMontoValidation, validateRequest, userController.updateMontoComprometido);
+router.put('/:id/desactivar', restrictTo('admin'), userController.desactivarComprometido);
 
 export default router;

@@ -1,5 +1,5 @@
 import User from '../models/User.js';
-import { generateToken } from '../helpers/jwt.js';
+import { generateToken, generateRefreshToken, verifyRefreshToken } from '../helpers/jwt.js';
 
 class AuthService {
   async register(userData) {
@@ -12,24 +12,26 @@ class AuthService {
     // Crear usuario
     const user = await User.create(userData);
     
-    // Generar token
-    const token = generateToken(user._id);
+    const accessToken = generateToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
 
-    // Retornar usuario sin password
     const userResponse = user.toObject();
     delete userResponse.password;
 
-    return { user: userResponse, token };
+    return { user: userResponse, accessToken, refreshToken };
   }
 
   async login(email, password) {
     // Buscar usuario con password
     const user = await User.findOne({ email }).select('+password');
 
+    if (!user) {
+      throw new Error('Credenciales inválidas');
+    }
+
     // Verificar contraseña
     const isValidPassword = await user.comparePassword(password);
-    console.log(isValidPassword)
-    
+
     if (!isValidPassword) {
       throw new Error('Credenciales inválidas');
     }
@@ -38,14 +40,28 @@ class AuthService {
       throw new Error('Usuario inactivo');
     }
 
-    // Generar token
-    const token = generateToken(user._id);
+    const accessToken = generateToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
 
-    // Retornar usuario sin password
     const userResponse = user.toObject();
     delete userResponse.password;
 
-    return { user: userResponse, token };
+    return { user: userResponse, accessToken, refreshToken };
+  }
+
+  async refresh(token) {
+    const decoded = verifyRefreshToken(token);
+    if (!decoded) {
+      throw new Error('Refresh token inválido o expirado');
+    }
+
+    const user = await User.findById(decoded.id);
+    if (!user || !user.activo) {
+      throw new Error('Usuario no encontrado o inactivo');
+    }
+
+    const accessToken = generateToken(user._id);
+    return { accessToken };
   }
 
   async getProfile(userId) {

@@ -34,6 +34,12 @@ const ventaSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  organizacion: {
+    type: String,
+    enum: ['mision', 'edc'],
+    default: 'mision',
+    required: true,
+  },
   registradoPor: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -43,7 +49,7 @@ const ventaSchema = new mongoose.Schema({
 });
 
 // Índice para búsquedas eficientes
-ventaSchema.index({ mes: 1, year: 1 });
+ventaSchema.index({ organizacion: 1, mes: 1, year: 1 });
 
 const Venta = mongoose.model('Venta', ventaSchema);
 

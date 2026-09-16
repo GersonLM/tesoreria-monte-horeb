@@ -59,6 +59,15 @@ export const getComprometidos = async (req, res) => {
   }
 };
 
+export const desactivarComprometido = async (req, res) => {
+  try {
+    const user = await userService.desactivarComprometido(req.params.id);
+    successResponse(res, user, 'Comprometido desactivado exitosamente');
+  } catch (error) {
+    errorResponse(res, error.message, 400);
+  }
+};
+
 export const updateMontoComprometido = async (req, res) => {
   try {
     const { monto } = req.body;

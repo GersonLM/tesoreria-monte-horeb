@@ -1,18 +1,19 @@
 import mongoose from 'mongoose';
 
-const ofrendaSchema = new mongoose.Schema({
+const otroIngresoSchema = new mongoose.Schema({
   monto: {
     type: Number,
     required: [true, 'El monto es requerido'],
     min: [0, 'El monto debe ser mayor o igual a 0'],
   },
+  motivo: {
+    type: String,
+    required: [true, 'El motivo es requerido'],
+    trim: true,
+  },
   fecha: {
     type: Date,
     required: [true, 'La fecha es requerida'],
-  },
-  motivo: {
-    type: String,
-    trim: true,
   },
   mes: {
     type: Number,
@@ -39,8 +40,8 @@ const ofrendaSchema = new mongoose.Schema({
 });
 
 // Índice para búsquedas eficientes
-ofrendaSchema.index({ organizacion: 1, mes: 1, year: 1 });
+otroIngresoSchema.index({ organizacion: 1, mes: 1, year: 1 });
 
-const Ofrenda = mongoose.model('Ofrenda', ofrendaSchema);
+const OtroIngreso = mongoose.model('OtroIngreso', otroIngresoSchema);
 
-export default Ofrenda;
+export default OtroIngreso;

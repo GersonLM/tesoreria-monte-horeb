@@ -34,6 +34,14 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  fechaDesactivacion: {
+    type: Date,
+    default: null,
+  },
+  fechaInicio: {
+    type: Date,
+    default: null,
+  },
 }, {
   timestamps: true,
 });
